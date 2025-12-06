@@ -9,17 +9,17 @@ import (
 	repo "notes_server/db"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	host := "localhost"      
-	port := "5432"        
-	user := "appuser"       
-	password := "secret" 
-	dbname := "notes"       
-	
+	host := "db"
+	port := "5432"
+	user := "appuser"
+	password := "secret"
+	dbname := "notes"
 
 	databaseDSN := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -27,24 +27,31 @@ func main() {
 	)
 	println(databaseDSN)
 
-	db, err := sql.Open("postgres", databaseDSN)
-	if err != nil {
-		log.Fatal(err)
+	var db *sql.DB
+	var err error
+
+	for i := 0; i < 20; i++ {
+		db, err = sql.Open("postgres", databaseDSN)
+		if err == nil {
+			err = db.Ping()
+		}
+		if err == nil {
+			log.Println("Подключение к БД успешно")
+			break
+		}
+		log.Println("БД не доступна, пробуем ещё раз через 2 секунды...", err)
+		time.Sleep(2 * time.Second)
 	}
 
-	err = db.Ping()
 	if err != nil {
-		log.Fatal("БД не доступна:", err)
+		log.Fatal("Не удалось подключиться к БД после 20 попыток:", err)
 	}
-
-	log.Println("Подключение к БД успешно")
 
 	err = StartTCPServer(db, ":9000")
 	if err != nil {
 		log.Fatal("Ошибка TCP сервера:", err)
 	}
 }
-
 
 
 func StartTCPServer(db *sql.DB, address string) error {
